@@ -1,18 +1,18 @@
 {
   "type": "module",
   "scripts": {
-    "dev": "node server.js --dev",
+    "dev": "node server.js",
     "start": "node server.js",
     "build": "npm run build:client && npm run build:server",
-    "build:client": "vite build --outDir dist/client --ssrManifest",
-    "build:server": "vite build --outDir dist/server --ssr /index.js",
-    "devinstall": "zx ../../devinstall.mjs -- node server.js --dev",
+    "build:client": "vite build --outDir dist/client",
+    "build:server": "vite build --ssr src/entry-server.js --outDir dist/server",
+    "preview": "vite preview",
+    "devinstall": "zx ../../devinstall.mjs",
     "lint": "eslint . --ext .js,.jsx --fix"
   },
   "dependencies": {
-    "@fastify/one-line-logger": "^1.2.0",
-    "@fastify/react": "^0.6.0",
-    "@fastify/vite": "^6.0.5",
+    "dotenv": "^16.4.7",
+    "express": "^4.21.2",
     "fastify": "^4.24.3",
     "history": "^5.3.0",
     "minipass": "^7.0.4",
@@ -22,10 +22,11 @@
     "react-leaflet": "^4.2.1",
     "react-router-dom": "^6.20.0",
     "unihead": "^0.0.6",
-    "valtio": "^1.12.0"
+    "valtio": "^1.12.0",
+    "vite-plugin-ssr": "^0.4.142"
   },
   "devDependencies": {
-    "@vitejs/plugin-react": "^4.2.0",
+    "@vitejs/plugin-react": "^4.3.4",
     "postcss": "^8.4.31",
     "postcss-nesting": "^12.0.2",
     "postcss-preset-env": "^7.7.1",

@@ -1,42 +1,73 @@
-import Fastify from "fastify";
-import FastifyVite from "@fastify/vite";
+import express from 'express';
+import fs from 'fs';
+import { createServer as createViteServer } from 'vite';
+import 'dotenv/config';
 
-// Fastify + React + Vite configuration
-const server = Fastify({
-  logger: {
-    transport: {
-      target: "@fastify/one-line-logger",
-    },
-  },
-});
+const app = express();
+const port = process.env.PORT || 3000;
+const apiKey = process.env.OPENAI_API_KEY;
 
-await server.register(FastifyVite, {
-  root: import.meta.url,
-  renderer: "@fastify/react",
-});
-
-await server.vite.ready();
-
-// Server-side API route to return an ephemeral realtime session token
-server.get("/token", async () => {
-  const r = await fetch("https://api.openai.com/v1/realtime/sessions", {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      model: "gpt-4o-realtime-preview-2024-12-17",
-      voice: "verse",
-    }),
+async function createServer() {
+  const vite = await createViteServer({
+    server: { middlewareMode: true },
+    appType: 'custom'
   });
 
-  return new Response(r.body, {
-    status: 200,
-    headers: {
-      "Content-Type": "application/json",
-    },
-  });
-});
+  app.use(vite.middlewares);
+  
+  // Serve static files
+  app.use(express.static('client/public'));
 
-await server.listen({ port: process.env.PORT || 3000 });
+  // API route for token generation
+  app.get('/token', async (req, res) => {
+    try {
+      const response = await fetch("https://api.openai.com/v1/realtime/sessions", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${apiKey}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          model: "gpt-4o-realtime-preview-2024-12-17",
+          voice: "verse",
+        }),
+      });
+
+      const data = await response.json();
+      res.json(data);
+    } catch (error) {
+      console.error('Token generation error:', error);
+      res.status(500).json({ error: 'Failed to generate token' });
+    }
+  });
+
+  // Handle SSR requests
+  app.use('*', async (req, res, next) => {
+    const url = req.originalUrl;
+
+    try {
+      // Read the index.html and Apply Vite HTML transforms
+      const template  = await vite.transformIndexHtml(url, fs.readFileSync('./client/index.html', 'utf-8'));
+
+      // Load the server entry module
+      const { render } = await vite.ssrLoadModule('./client/entry-server.jsx');
+
+      // Render the app
+      const appHtml = await render(url);
+
+      // Inject the app-rendered HTML into the template - exmaple was missing the appHtml?.html
+      const html = template.replace(`<!--ssr-outlet-->`, appHtml?.html)
+
+      res.status(200).set({ 'Content-Type': 'text/html' }).end(html);
+    } catch (e) {
+      vite.ssrFixStacktrace(e);
+      next(e);
+    }
+  });
+
+  app.listen(port, () => {
+    console.log(`Server running at http://localhost:${port}`);
+  });
+}
+
+createServer();
